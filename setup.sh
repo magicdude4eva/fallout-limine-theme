@@ -23,6 +23,7 @@ BOLD="\e[1m"
 
 THEME_NAME="fallout"
 BACKUP_SUFFIX=".bak-$THEME_NAME"
+SPLASH_FILE="splash-limine-fallout.png"
 
 # Check dependencies
 check_dependencies() {
@@ -124,7 +125,7 @@ install_theme() {
   done
   
   # Also remove any existing wallpaper entry with fallout
-  sed -i "/^wallpaper:.*splash/d" "$limine_conf"
+  sed -i "/^wallpaper:.*splash-limine-fallout/d" "$limine_conf"
 
   echo -e "${CYAN}Adding Fallout theme parameters...${RESET}"
   temp_file=$(mktemp)
@@ -134,26 +135,26 @@ install_theme() {
   theme_dir=$(dirname "$limine_conf")
   
   # Copy wallpaper and calculate b2sum hash
-  if [[ -f "./splash.png" ]]; then
+  if [[ -f "./$SPLASH_FILE" ]]; then
     echo -e "${CYAN}Copying Fallout splash image to $theme_dir...${RESET}"
-    cp "./splash.png" "$theme_dir/"
+    cp "./$SPLASH_FILE" "$theme_dir/"
     
-    wallpaper_path="$theme_dir/splash.png"
+    wallpaper_path="$theme_dir/$SPLASH_FILE"
     echo -e "${CYAN}Calculating b2sum hash for splash image...${RESET}"
     wallpaper_hash=$(calculate_b2sum "$wallpaper_path")
     
     if [[ -z "$wallpaper_hash" ]]; then
       echo -e "${YELLOW}Warning: Could not calculate b2sum hash.${RESET}"
-      wallpaper_entry="wallpaper: boot():/splash.png"
+      wallpaper_entry="wallpaper: boot():/$SPLASH_FILE"
     else
       echo -e "${GREEN}Splash image hash:${RESET} $wallpaper_hash"
-      wallpaper_entry="wallpaper: boot():/splash.png#$wallpaper_hash"
+      wallpaper_entry="wallpaper: boot():/$SPLASH_FILE#$wallpaper_hash"
     fi
     
     # Add wallpaper entry to limine.conf
     echo "$wallpaper_entry" >> "$limine_conf"
   else
-    echo -e "${YELLOW}Warning: splash.png not found in current directory.${RESET}"
+    echo -e "${YELLOW}Warning: $SPLASH_FILE not found in current directory.${RESET}"
     echo -e "${YELLOW}Skipping splash image installation.${RESET}"
   fi
 
@@ -186,7 +187,7 @@ remove_theme() {
 
   theme_dir=$(dirname "$limine_conf")
   echo -e "${CYAN}Removing Fallout splash image...${RESET}"
-  rm -f "$theme_dir/splash.png"
+  rm -f "$theme_dir/$SPLASH_FILE"
 
   echo
   echo -e "${GREEN}${BOLD}Theme removed and backup restored!${RESET}"

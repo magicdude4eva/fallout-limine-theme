@@ -66,9 +66,9 @@ sudo b2sum /boot/splash-limine-fallout.png
 # Author: magicdude4eva (https://github.com/magicdude4eva/fallout-limine-theme)
 term_palette: 000000;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff
 term_palette_bright: 333333;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff
-term_background: 000000
+term_background: ffffffff
 term_foreground: 67d97a
-term_background_bright: 000000
+term_background_bright: ffffffff
 term_foreground_bright: ffffff
 wallpaper: boot():/splash-limine-fallout.png#<YOUR_B2SUM_HASH_HERE>
 ```

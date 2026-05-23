@@ -24,21 +24,23 @@ Features the iconic Fallout aesthetic with green terminal text (#67d97a) on a bl
 
 ### Quick Install
 
-1. Clone this repository:
+You can install directly from GitHub without cloning:
+
 ```bash
-git clone https://github.com/magicdude4eva/fallout-limine-theme.git
-cd fallout-limine-theme
+wget -O - https://github.com/magicdude4eva/fallout-limine-theme/raw/main/setup.sh | bash
 ```
 
-2. Run the installer:
+Or if you prefer to download first:
+
 ```bash
+wget -O setup.sh https://github.com/magicdude4eva/fallout-limine-theme/raw/main/setup.sh
 sudo bash setup.sh
 ```
 
 3. Select option **1) Install theme** from the menu
 
 4. The script will automatically:
-   - Copy the splash image to `/boot/`
+   - Download the splash image from GitHub
    - Calculate the b2sum hash
    - Configure your `limine.conf`
    - Prompt for reboot
@@ -47,30 +49,29 @@ sudo bash setup.sh
 
 If you prefer to set it up manually:
 
-1. Copy the splash image:
+1. Download the splash image:
 ```bash
-sudo cp splash.png /boot/
+sudo wget -O /boot/splash-limine-fallout.png https://raw.githubusercontent.com/magicdude4eva/fallout-limine-theme/main/splash-limine-fallout.png
 ```
 
 2. Calculate the hash:
 ```bash
-sudo b2sum /boot/splash.png
+sudo b2sum /boot/splash-limine-fallout.png
 ```
 
-3. Add to your `limine.conf`:
+3. Add to your `limine.conf` (place at the top of the file):
+
 ```ini
+# Fallout Limine Theme
+# Author: magicdude4eva (https://github.com/magicdude4eva/fallout-limine-theme)
 term_palette: 000000;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff
 term_palette_bright: 333333;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff
 term_background: 000000
 term_foreground: 67d97a
 term_background_bright: 000000
 term_foreground_bright: ffffff
-timeout: 10
-interface_branding: Fallout
-default_entry: 1
-wallpaper: boot():/splash.png#<YOUR_B2SUM_HASH_HERE>
+wallpaper: boot():/splash-limine-fallout.png#<YOUR_B2SUM_HASH_HERE>
 ```
-
 ## Menu Options
 
 When running `sudo bash setup.sh`:
@@ -84,7 +85,7 @@ When running `sudo bash setup.sh`:
 ## Requirements
 
 - `b2sum` - for hash verification (usually in `coreutils` package)
-- `sed`, `mktemp`, `grep` - standard Unix tools
+- `sed`, `mktemp`, `grep`, `wget` - standard Unix tools
 - `micro` - text editor (optional, for manual editing)
 
 The script will prompt to install missing dependencies via pacman.
@@ -114,8 +115,6 @@ Run the installer and select option **2) Remove theme and restore backup** to un
 ## License
 
 MIT License - See LICENSE file for details
-
-Original Fallout GRUB theme by [shvchk](https://github.com/shvchk/fallout-grub-theme)
 
 ## Credits
 

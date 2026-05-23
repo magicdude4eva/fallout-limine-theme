@@ -27,15 +27,15 @@ SPLASH_FILE="splash-limine-fallout.png"
 
 # Check dependencies
 check_dependencies() {
-  local deps=("b2sum" "sed" "mktemp" "grep")
+  local deps=("b2sum" "sed" "mktemp" "grep" "wget")
   local missing_deps=()
-  
+
   for dep in "${deps[@]}"; do
     if ! command -v "$dep" &> /dev/null; then
       missing_deps+=("$dep")
     fi
   done
-  
+
   if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo -e "${YELLOW}The following packages are missing:${RESET}"
     printf '  - %s\n' "${missing_deps[@]}"
@@ -59,10 +59,11 @@ PARAMS=(
   "term_foreground: 67d97a"
   "term_background_bright: 000000"
   "term_foreground_bright: ffffff"
-  "timeout: 10"
-  "interface_branding: Fallout"
-  "default_entry: 1"
+  "interface_branding:"
 )
+
+# GitHub raw content URL for the splash image
+SPLASH_IMAGE_URL="https://raw.githubusercontent.com/magicdude4eva/fallout-limine-theme/refs/heads/main/splash-limine-fallout.png"
 
 # Search for limine.conf recursively under /boot
 find_limine_conf() {
@@ -76,14 +77,14 @@ calculate_b2sum() {
     echo ""
     return 1
   fi
-  
+
   b2sum "$file" | awk '{print $1}'
 }
 
 # Ask the user if they want to reboot
 prompt_reboot() {
   echo
-  read -rp "$(echo -e \"${YELLOW}Do you want to reboot now to apply the changes? [y/N]: ${RESET}\")" reboot
+  read -rp "$(echo -e ${YELLOW}Do you want to reboot now to apply the changes? [y/N]: ${RESET})" reboot
   if [[ "$reboot" =~ ^[Yy]$ ]]; then
     echo -e "${CYAN}Rebooting...${RESET}"
     sleep 2
@@ -102,11 +103,21 @@ install_theme() {
     return
   fi
 
+  # Check if limine-update is available
+  if ! command -v limine-update &> /dev/null; then
+    echo -e "${YELLOW}Warning: limine-update not found in PATH.${RESET}"
+    echo -e "${YELLOW}Please ensure limine is installed and limine-update is available.${RESET}"
+    read -rp "$(echo -e \"${YELLOW}Continue without updating bootloader? [y/N]: ${RESET}\")" continue_without_update
+    if [[ ! "$continue_without_update" =~ ^[Yy]$ ]]; then
+      return 1
+    fi
+  fi
+
   echo -e "${GREEN}Found:${RESET} $limine_conf"
   backup_file="${limine_conf}${BACKUP_SUFFIX}"
 
   if [[ -f "$backup_file" ]]; then
-    read -rp "$(echo -e \"${YELLOW}A backup already exists. Overwrite it? [y/N]: ${RESET}\")" confirm
+    read -rp "$(echo -e ${YELLOW}A backup already exists. Overwrite it? [y/N]: ${RESET})" confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
       cp "$limine_conf" "$backup_file"
       echo -e "${GREEN}Backup overwritten:${RESET} $backup_file"
@@ -123,45 +134,99 @@ install_theme() {
     key="${param%%:*}"
     sed -i "/^$key:/d" "$limine_conf"
   done
-  
-  # Also remove any existing wallpaper entry with fallout
-  sed -i "/^wallpaper:.*splash-limine-fallout/d" "$limine_conf"
 
-  echo -e "${CYAN}Adding Fallout theme parameters...${RESET}"
+  # Remove any existing wallpaper entry (both old and new format)
+  sed -i "/^wallpaper:/d" "$limine_conf"
+
+  echo -e "${CYAN}Adding Fallout theme block...${RESET}"
+
+  # Create a temporary file with the theme block at the top
   temp_file=$(mktemp)
-  printf '%s\n' "${PARAMS[@]}" | cat - "$limine_conf" > "$temp_file"
+
+  # Write the theme block header
+  cat << 'EOF' > "$temp_file"
+# Fallout Limine Theme
+# Author: magicdude4eva (https://github.com/magicdude4eva/fallout-limine-theme)
+EOF
+
+  # Write all theme parameters except wallpaper
+  for param in "${PARAMS[@]}"; do
+    if [[ "$param" != wallpaper* ]]; then
+      echo "$param" >> "$temp_file"
+    fi
+  done
+
+  # Add empty line and wallpaper entry
+  echo "" >> "$temp_file"
+  echo "$wallpaper_entry" >> "$temp_file"
+
+  # Add empty line and the rest of the original config (without any existing theme params)
+  echo "" >> "$temp_file"
+
+  # Only keep lines that don't match our theme parameters
+  grep -vE "^(term_palette|term_palette_bright|term_background|term_foreground|term_background_bright|term_foreground_bright|interface_branding|wallpaper):" "$limine_conf" >> "$temp_file"
+
+  # Replace original file
   mv "$temp_file" "$limine_conf"
 
   theme_dir=$(dirname "$limine_conf")
-  
-  # Copy wallpaper and calculate b2sum hash
-  if [[ -f "./$SPLASH_FILE" ]]; then
-    echo -e "${CYAN}Copying Fallout splash image to $theme_dir...${RESET}"
-    cp "./$SPLASH_FILE" "$theme_dir/"
-    
-    wallpaper_path="$theme_dir/$SPLASH_FILE"
-    echo -e "${CYAN}Calculating b2sum hash for splash image...${RESET}"
-    wallpaper_hash=$(calculate_b2sum "$wallpaper_path")
-    
-    if [[ -z "$wallpaper_hash" ]]; then
-      echo -e "${YELLOW}Warning: Could not calculate b2sum hash.${RESET}"
-      wallpaper_entry="wallpaper: boot():/$SPLASH_FILE"
-    else
-      echo -e "${GREEN}Splash image hash:${RESET} $wallpaper_hash"
-      wallpaper_entry="wallpaper: boot():/$SPLASH_FILE#$wallpaper_hash"
-    fi
-    
-    # Add wallpaper entry to limine.conf
-    echo "$wallpaper_entry" >> "$limine_conf"
-  else
-    echo -e "${YELLOW}Warning: $SPLASH_FILE not found in current directory.${RESET}"
-    echo -e "${YELLOW}Skipping splash image installation.${RESET}"
+
+  # Verify theme directory is writable
+  if [[ ! -w "$theme_dir" ]]; then
+    echo -e "${RED}Error: Cannot write to $theme_dir.${RESET}"
+    echo -e "${YELLOW}Check permissions and try again.${RESET}"
+    return 1
   fi
+
+  # Download splash image directly from GitHub
+  echo -e "${CYAN}Downloading Fallout splash image from GitHub...${RESET}"
+  echo -e "${YELLOW}URL: $SPLASH_IMAGE_URL${RESET}"
+
+  # Check if wget is available
+  if ! command -v wget &> /dev/null; then
+    echo -e "${RED}Error: wget is not installed.${RESET}"
+    echo -e "${YELLOW}Please install wget and try again.${RESET}"
+    echo -e "${YELLOW}Command: pacman -S wget${RESET}"
+    return 1
+  fi
+
+  # Download the splash image
+  if ! wget -q "$SPLASH_IMAGE_URL" -O "$theme_dir/$SPLASH_FILE"; then
+    echo -e "${RED}Error: Failed to download splash image.${RESET}"
+    echo -e "${YELLOW}Check your internet connection and try again.${RESET}"
+    echo -e "${YELLOW}Check write permissions in $theme_dir.${RESET}"
+    return 1
+  fi
+
+  wallpaper_path="$theme_dir/$SPLASH_FILE"
+  echo -e "${CYAN}Calculating b2sum hash for splash image...${RESET}"
+  wallpaper_hash=$(calculate_b2sum "$wallpaper_path")
+
+  if [[ -z "$wallpaper_hash" ]]; then
+    echo -e "${RED}Error: Could not calculate b2sum hash.${RESET}"
+    echo -e "${YELLOW}The downloaded image may be corrupted.${RESET}"
+    return 1
+  else
+    echo -e "${GREEN}Splash image hash:${RESET} $wallpaper_hash"
+    wallpaper_entry="wallpaper: boot():/$SPLASH_FILE#$wallpaper_hash"
+  fi
+
+  # Add wallpaper entry to limine.conf
+  echo "$wallpaper_entry" >> "$limine_conf"
 
   echo
   echo -e "${GREEN}${BOLD}Theme installed successfully!${RESET}"
   echo -e "${CYAN}Configuration file:${RESET} $limine_conf"
-  
+
+  echo -e "${CYAN}Recreating bootloader via limine-update...${RESET}"
+  if ! limine-update; then
+    echo -e "${RED}Error: limine-update failed!${RESET}"
+    echo -e "${YELLOW}Your bootloader may not be updated.${RESET}"
+    echo -e "${YELLOW}Please run 'limine-update' manually after fixing any issues.${RESET}"
+  else
+    echo -e "${GREEN}Bootloader updated successfully!${RESET}"
+  fi
+
   prompt_reboot
 }
 
@@ -234,7 +299,7 @@ show_theme_info() {
         pause
         return
     fi
-    
+
     clear
     echo -e "${BOLD}Fallout Limine Theme - Current Configuration${RESET}"
     echo -e "${CYAN}============================================${RESET}"
@@ -251,9 +316,8 @@ show_theme_info() {
 while true; do
   clear
   echo
-  echo -e "${BOLD}Fallout Limine Theme Installer${RESET}"
-  echo -e "${BOLD}for Arch Linux / CachyOS${RESET}"
-  echo -e "${CYAN}==============================${RESET}"
+  echo -e "${BOLD}Fallout Limine Theme Installer for Arch Linux / CachyOS${RESET}"
+  echo -e "${CYAN}=======================================================${RESET}"
   echo
   echo -e "${BOLD}Choose an option:${RESET}"
   echo -e "${CYAN}1)${RESET} Install theme"
@@ -261,7 +325,7 @@ while true; do
   echo -e "${CYAN}3)${RESET} Edit limine.conf manually"
   echo -e "${CYAN}4)${RESET} Show current theme configuration"
   echo -e "${RED}5)${RESET} Exit"
-  read -rp "$(echo -e \"${YELLOW}Option [1-5]: ${RESET}\")" option
+  read -rp "$(echo -e ${YELLOW}Option [1-5]: ${RESET})" option
 
   case "$option" in
     1) clear; check_dependencies; install_theme ;;

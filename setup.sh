@@ -55,9 +55,9 @@ check_dependencies() {
 PARAMS=(
   "term_palette: 000000;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff"
   "term_palette_bright: 333333;ff0000;67d97a;ffff00;0000ff;ff00ff;67d97a;ffffff"
-  "term_background: 000000"
+  "term_background: ffffffff"
   "term_foreground: 67d97a"
-  "term_background_bright: 000000"
+  "term_background_bright: ffffffff"
   "term_foreground_bright: ffffff"
   "interface_branding:"
 )
